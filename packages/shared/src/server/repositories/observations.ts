@@ -26,17 +26,27 @@ import { TableCount } from "./types";
 import { OrderByState } from "../../interfaces/orderBy";
 import { getTracesByIds } from "./traces";
 import { convertDateToClickhouseDateTime } from "../clickhouse/client";
-import {
-  convertObservationToView,
-  convertObservation,
-} from "./observations_converters";
+import { convertObservation } from "./observations_converters";
 import { clickhouseSearchCondition } from "../queries/clickhouse-sql/search";
 import {
   OBSERVATIONS_TO_TRACE_INTERVAL,
   TRACE_TO_OBSERVATIONS_INTERVAL,
 } from "./constants";
 import { env } from "../../env";
+import { ClickHouseClientConfigOptions } from "@clickhouse/client";
 
+/**
+ * Checks if observation exists in clickhouse.
+ *
+ * @param {string} projectId - Project ID for the observation
+ * @param {string} id - ID of the observation
+ * @param {Date} startTime - Timestamp for time-based filtering, uses event payload or job timestamp
+ * @returns {Promise<boolean>} - True if observation exists
+ *
+ * Notes:
+ * • Filters with two days lookback window subject to startTime
+ * • Used for validating observation references before eval job creation
+ */
 export const checkObservationExists = async (
   projectId: string,
   id: string,
@@ -101,7 +111,7 @@ export const upsertObservation = async (
   });
 };
 
-export const getObservationsViewForTrace = async (
+export const getObservationsForTrace = async (
   traceId: string,
   projectId: string,
   timestamp?: Date,
@@ -161,7 +171,7 @@ export const getObservationsViewForTrace = async (
     },
   });
 
-  return records.map(convertObservationToView);
+  return records.map(convertObservation);
 };
 
 export const getObservationForTraceIdByName = async (
@@ -227,7 +237,7 @@ export const getObservationForTraceIdByName = async (
     },
   });
 
-  return records.map(convertObservationToView);
+  return records.map(convertObservation);
 };
 
 export const getObservationById = async (
@@ -306,33 +316,6 @@ export const getObservationsById = async (
   return records.map(convertObservation);
 };
 
-export const getObservationViewById = async (
-  id: string,
-  projectId: string,
-  fetchWithInputOutput: boolean = false,
-) => {
-  const records = await getObservationByIdInternal(
-    id,
-    projectId,
-    fetchWithInputOutput,
-  );
-  const mapped = records.map(convertObservationToView);
-
-  if (mapped.length === 0) {
-    throw new LangfuseNotFoundError(`Observation with id ${id} not found`);
-  }
-
-  if (mapped.length > 1) {
-    logger.error(
-      `Multiple observations found for id ${id} and project ${projectId}`,
-    );
-    throw new InternalServerError(
-      `Multiple observations found for id ${id} and project ${projectId}`,
-    );
-  }
-  return mapped.shift();
-};
-
 const getObservationByIdInternal = async (
   id: string,
   projectId: string,
@@ -402,6 +385,7 @@ export type ObservationTableQuery = {
   limit?: number;
   offset?: number;
   selectIOAndMetadata?: boolean;
+  clickhouseConfigs?: ClickHouseClientConfigOptions | undefined;
 };
 
 export type ObservationsTableQueryResult = ObservationRecordReadType & {
@@ -467,13 +451,14 @@ export const getObservationsTableWithModelData = async (
     const trace = traces.find((t) => t.id === o.trace_id);
     const model = models.find((m) => m.id === o.internal_model_id);
     return {
-      ...convertObservationToView(o),
+      ...convertObservation(o),
       latency: o.latency ? Number(o.latency) / 1000 : null,
       timeToFirstToken: o.time_to_first_token
         ? Number(o.time_to_first_token) / 1000
         : null,
       traceName: trace?.name ?? null,
       traceTags: trace?.tags ?? [],
+      traceTimestamp: trace?.timestamp ?? null,
       userId: trace?.userId ?? null,
       modelId: model?.id ?? null,
       inputPrice:
@@ -525,8 +510,15 @@ const getObservationsTableInternal = async <T>(
         if(isNull(end_time), NULL, date_diff('millisecond', start_time, end_time)) as latency,
         if(isNull(completion_start_time), NULL,  date_diff('millisecond', start_time, completion_start_time)) as "time_to_first_token"`;
 
-  const { projectId, filter, selectIOAndMetadata, limit, offset, orderBy } =
-    opts;
+  const {
+    projectId,
+    filter,
+    selectIOAndMetadata,
+    limit,
+    offset,
+    orderBy,
+    clickhouseConfigs,
+  } = opts;
 
   const selectString = selectIOAndMetadata
     ? `
@@ -689,6 +681,7 @@ const getObservationsTableInternal = async <T>(
       type: "observation",
       projectId,
     },
+    clickhouseConfigs,
   });
 
   return res;

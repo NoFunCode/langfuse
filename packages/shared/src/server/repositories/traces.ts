@@ -26,7 +26,21 @@ import {
   TRACE_TO_OBSERVATIONS_INTERVAL,
 } from "./constants";
 import { env } from "../../env";
+import { ClickHouseClientConfigOptions } from "@clickhouse/client";
 
+/**
+ * Checks if trace exists in clickhouse.
+ *
+ * @param {string} projectId - Project ID for the trace
+ * @param {string} traceId - ID of the trace to check
+ * @param {Date} timestamp - Timestamp for time-based filtering, uses event payload or job timestamp
+ * @param {FilterState} filter - Filter for the trace
+ * @returns {Promise<boolean>} - True if trace exists
+ *
+ * Notes:
+ * • Filters within ±2 day window
+ * • Used for validating trace references before eval job creation
+ */
 export const checkTraceExists = async (
   projectId: string,
   traceId: string,
@@ -137,6 +151,7 @@ export const getTracesByIds = async (
   traceIds: string[],
   projectId: string,
   timestamp?: Date,
+  clickhouseConfigs?: ClickHouseClientConfigOptions | undefined,
 ) => {
   const query = `
       SELECT * 
@@ -159,6 +174,7 @@ export const getTracesByIds = async (
       kind: "byId",
       projectId,
     },
+    clickhouseConfigs,
   });
 
   return records.map(convertClickhouseToDomain);
