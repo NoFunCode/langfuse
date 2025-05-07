@@ -508,7 +508,7 @@ export default function ObservationsTable({
         if (!model) return null;
 
         return modelId ? (
-          <TableId value={modelId} />
+          <TableId value={model} />
         ) : (
           <UpsertModelFormDrawer
             action="create"
@@ -945,6 +945,7 @@ export default function ObservationsTable({
           children: (row) => (
             <PeekViewObservationDetail projectId={projectId} row={row} />
           ),
+          tableDataUpdatedAt: generations.dataUpdatedAt,
         }}
         data={
           generations.isLoading

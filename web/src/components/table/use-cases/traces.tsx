@@ -97,7 +97,7 @@ export type TracesTableRow = {
     defaultCount?: bigint;
   };
   latency?: number;
-  usageDetails?: Record<string, number>;
+  tokenDetails?: Record<string, number>;
   totalCost?: Decimal;
   costDetails?: Record<string, number>;
   environment?: string;
@@ -204,6 +204,7 @@ export default function TracesTable({
     dateRangeFilter,
     environmentFilter,
   );
+
   const [paginationState, setPaginationState] = useQueryParams({
     pageIndex: withDefault(NumberParam, 0),
     pageSize: withDefault(NumberParam, 50),
@@ -546,8 +547,10 @@ export default function TracesTable({
         if (!value.inputUsage && !value.outputUsage && !value.totalUsage) {
           return null;
         }
+
+
         return (
-          <BreakdownTooltip details={row.original.usageDetails ?? []}>
+          <BreakdownTooltip details={row.original.tokenDetails ?? []}>
             <div className="flex items-center gap-1">
               <TokenUsageBadge
                 inputUsage={Number(value.inputUsage ?? 0)}
@@ -1096,6 +1099,10 @@ export default function TracesTable({
           onExpand: expandPeek,
           getNavigationPath,
           children: <PeekViewTraceDetail projectId={projectId} />,
+          tableDataUpdatedAt: Math.max(
+            traces.dataUpdatedAt,
+            traceMetrics.dataUpdatedAt,
+          ),
         }}
       />
     </>
