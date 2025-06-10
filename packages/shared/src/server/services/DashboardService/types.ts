@@ -24,6 +24,15 @@ export const PieChartConfig = BaseTotalValueChartConfig.extend({
   type: z.literal("PIE"),
 });
 
+export const BigNumberChartConfig = BaseTotalValueChartConfig.extend({
+  type: z.literal("NUMBER"),
+});
+
+export const HistogramChartConfig = BaseTotalValueChartConfig.extend({
+  type: z.literal("HISTOGRAM"),
+  bins: z.number().int().min(1).max(100).optional().default(10),
+});
+
 // Define dimension schema
 export const DimensionSchema = z.object({
   field: z.string(),
@@ -42,6 +51,8 @@ export const ChartConfigSchema = z.discriminatedUnion("type", [
   HorizontalBarChartConfig,
   VerticalBarChartConfig,
   PieChartConfig,
+  BigNumberChartConfig,
+  HistogramChartConfig,
 ]);
 
 export const DashboardDefinitionWidgetWidgetSchema = z.object({
@@ -62,6 +73,8 @@ export const DashboardDefinitionSchema = z.object({
   widgets: z.array(DashboardDefinitionWidgetSchema),
 });
 
+export const OwnerEnum = z.enum(["PROJECT", "LANGFUSE"]);
+
 // Define the dashboard domain object
 export const DashboardDomainSchema = z.object({
   id: z.string(),
@@ -73,6 +86,7 @@ export const DashboardDomainSchema = z.object({
   name: z.string(),
   description: z.string(),
   definition: DashboardDefinitionSchema,
+  owner: OwnerEnum,
 });
 
 // Define the dashboard list response
@@ -97,6 +111,7 @@ export const WidgetDomainSchema = z.object({
   filters: z.array(singleFilter),
   chartType: z.nativeEnum(DashboardWidgetChartType),
   chartConfig: ChartConfigSchema,
+  owner: OwnerEnum,
 });
 
 // Define create widget input schema

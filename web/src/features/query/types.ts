@@ -8,22 +8,27 @@ export type DimensionsDeclarationType = z.infer<
 
 export const viewDeclaration = z.object({
   name: z.string(),
+  description: z.string(),
   // This is the basic statement that we query from. Usually, this should be the view_name + FINAL or a more complex subquery.
   baseCte: z.string(),
   dimensions: z.record(
     z.object({
       sql: z.string(),
       alias: z.string().optional(),
-      type: z.enum(["string", "number", "bool", "string[]"]),
       relationTable: z.string().optional(),
+      description: z.string().optional(),
+      type: z.string().optional(),
+      unit: z.string().optional(),
     }),
   ),
   measures: z.record(
     z.object({
       sql: z.string(),
       alias: z.string().optional(),
-      type: z.enum(["count", "sum", "number"]),
       relationTable: z.string().optional(),
+      description: z.string().optional(),
+      type: z.string().optional(),
+      unit: z.string().optional(),
     }),
   ),
   tableRelations: z.record(
@@ -64,6 +69,7 @@ export const metricAggregations = z.enum([
   "p90",
   "p95",
   "p99",
+  "histogram",
 ]);
 
 export const metric = z.object({
@@ -105,6 +111,14 @@ export const query = z
         }),
       )
       .nullable(),
+    // Chart configuration for chart-specific settings like histogram bins
+    chartConfig: z
+      .object({
+        type: z.string(),
+        bins: z.number().int().min(1).max(100).optional(),
+        row_limit: z.number().int().positive().lte(1000).optional(),
+      })
+      .optional(),
   })
   .refine(
     (query) =>
